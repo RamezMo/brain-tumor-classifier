@@ -1,0 +1,16 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE folders
+.vscode/
+.idea/
+
+# Data and Experiment Folders to IGNORE
+data/
+wandb/
+_experiments/
