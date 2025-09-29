@@ -1,68 +1,60 @@
+import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import io
-# --- NEW: Import render_template ---
-from flask import Flask, request, jsonify, render_template
 
-# --- 1. Initialize the Flask App ---
-app = Flask(__name__)
-
-# --- 2. Load the Trained Model ---
-MODEL_PATH = "best_model.keras"
-print(f"Loading trained model from: {MODEL_PATH}")
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    custom_objects={
-        "preprocess_input": tf.keras.applications.resnet.preprocess_input
-    }
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Brain Tumor Classification",
+    page_icon="🧠",
+    layout="centered"
 )
+
+# --- Model Loading ---
+@st.cache_resource
+def load_my_model():
+    """
+    Loads the trained model from file.
+    The @st.cache_resource decorator ensures the model is loaded only once.
+    """
+    model_path = "best_model.keras"
+    # Note: We don't need custom_objects here because the model structure
+    # in the last successful training run doesn't require it.
+    model = tf.keras.models.load_model(model_path)
+    return model
+
+model = load_my_model()
 CLASS_NAMES = ['glioma', 'meningioma', 'notumor', 'pituitary']
-print("Model loaded successfully.")
 
-# --- 3. Create a Prediction Function ---
-def prepare_image(image):
-    image = image.resize((224, 224))
-    image_array = tf.keras.preprocessing.image.img_to_array(image)
-    image_array = np.expand_dims(image_array, axis=0)
-    return image_array
+# --- UI Components ---
+st.title("Brain Tumor MRI Classification")
+st.write("Upload an MRI scan to classify the tumor type using the trained ResNet50 model (97% Accuracy).")
 
-# --- NEW: Define the route for the main homepage ---
-@app.route("/")
-def home():
-    # This tells Flask to find and send the index.html file
-    return render_template("index.html")
+uploaded_file = st.file_uploader("Choose an MRI image...", type=["jpg", "jpeg", "png"])
 
-# --- 4. Define the API Endpoint ---
-@app.route("/predict", methods=["POST"])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({"error": "No file selected for uploading"}), 400
+if uploaded_file is not None:
+    # --- Image Preprocessing ---
+    try:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded MRI', use_column_width=True)
+        st.write("")
+        st.write("Classifying...")
 
-    if file:
-        try:
-            image = Image.open(io.BytesIO(file.read()))
-            prepared_image = prepare_image(image)
-            prediction = model.predict(prepared_image)
-            
-            predicted_class_index = np.argmax(prediction, axis=1)[0]
-            predicted_class_name = CLASS_NAMES[predicted_class_index]
-            confidence_score = float(np.max(prediction, axis=1)[0])
-            
-            return jsonify({
-                "prediction": predicted_class_name,
-                "confidence": f"{confidence_score:.2%}"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    
-    return jsonify({"error": "An unknown error occurred"}), 500
+        # Prepare the image for the model
+        image_resized = image.resize((224, 224))
+        image_array = tf.keras.preprocessing.image.img_to_array(image_resized)
+        image_array = np.expand_dims(image_array, axis=0)
 
-# --- 5. Run the App ---
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+        # --- Prediction ---
+        prediction = model.predict(image_array)
+        
+        predicted_class_index = np.argmax(prediction, axis=0)[0]
+        predicted_class_name = CLASS_NAMES[predicted_class_index]
+        confidence_score = np.max(prediction)
+        
+        # --- Display Result ---
+        st.success(f"Prediction: **{predicted_class_name}**")
+        st.info(f"Confidence: **{confidence_score:.2%}**")
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
