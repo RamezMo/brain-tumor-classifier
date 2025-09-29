@@ -4,3 +4,4 @@ keras==2.15.0
 numpy
 opencv-python
 Pillow
+h5py
