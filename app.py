@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D, Inpu
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.applications import ResNet50
 
+
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Brain Tumor Classification",
@@ -41,7 +42,7 @@ def load_best_model():
     ], name="BrainTumorClassifier_ResNet")
 
     # --- Step 2: Load only the weights into the architecture ---
-    model_path = "finetune_resnet_full_advanced.keras"
+    model_path = "best_model.keras"
     st.write(f"Loading weights from {model_path}...")
     model.load_weights(model_path)
     
