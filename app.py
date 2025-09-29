@@ -17,7 +17,7 @@ def load_best_model():
     """
     Rebuilds the model architecture and loads the saved weights.
     """
-    model_path = "finetune_resnet_full_advanced.keras"
+    model_path = "best_model.keras"
     st.write("Building model architecture...")
     
     # Rebuild the exact same model architecture
