@@ -2,8 +2,9 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-# Import the specific preprocessing function
-from tensorflow.keras.applications.resnet import preprocess_input
+from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D, Input
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.applications import ResNet50
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -16,15 +17,34 @@ st.set_page_config(
 @st.cache_resource
 def load_best_model():
     """
-    Loads your best-performing model from file.
+    Rebuilds the model architecture and loads the saved weights.
     """
-    model_path = "finetune_resnet_full_advanced.keras"
-    st.write("Loading model...")
-    # --- FIX: Add custom_objects to handle the Lambda layer ---
-    model = tf.keras.models.load_model(
-        model_path,
-        custom_objects={'preprocess_input': preprocess_input}
+    st.write("Building model architecture...")
+    
+    # --- Step 1: Rebuild the exact same model architecture ---
+    base_model = ResNet50(
+        weights=None,  # Do not load pre-trained weights, we will load our own
+        include_top=False,
+        input_shape=(224, 224, 3),
+        name='resnet50'
     )
+    base_model.trainable = True # Set to True as we are loading fine-tuned weights
+
+    # Use the same Sequential structure
+    model = Sequential([
+        Input(shape=(224, 224, 3), name='input_layer'),
+        tf.keras.layers.Lambda(tf.keras.applications.resnet.preprocess_input),
+        base_model,
+        GlobalAveragePooling2D(),
+        Dropout(0.5),
+        Dense(4, activation='softmax')
+    ], name="BrainTumorClassifier_ResNet")
+
+    # --- Step 2: Load only the weights into the architecture ---
+    model_path = "finetune_resnet_full_advanced.keras"
+    st.write(f"Loading weights from {model_path}...")
+    model.load_weights(model_path)
+    
     st.write("Model loaded successfully!")
     return model
 
@@ -49,9 +69,9 @@ if uploaded_file is not None:
         with st.spinner("Analyzing the image..."):
             image_resized = image.resize((224, 224))
             image_array = tf.keras.preprocessing.image.img_to_array(image_resized)
-            image_array = np.expand_dims(image_array, axis=0)
+            image_batch = np.expand_dims(image_array, axis=0)
 
-            prediction = model.predict(image_array)
+            prediction = model.predict(image_batch)
             
             predicted_class_index = np.argmax(prediction, axis=1)[0]
             predicted_class_name = CLASS_NAMES[predicted_class_index]
