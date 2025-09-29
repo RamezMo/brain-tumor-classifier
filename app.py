@@ -2,10 +2,7 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D, Input
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.applications import ResNet50
-
+from tensorflow.keras.applications.resnet import preprocess_input
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -20,29 +17,27 @@ def load_best_model():
     """
     Rebuilds the model architecture and loads the saved weights.
     """
+    model_path = "finetune_resnet_full_advanced.keras"
     st.write("Building model architecture...")
     
-    # --- Step 1: Rebuild the exact same model architecture ---
-    base_model = ResNet50(
-        weights=None,  # Do not load pre-trained weights, we will load our own
+    # Rebuild the exact same model architecture
+    base_model = tf.keras.applications.ResNet50(
+        weights=None,
         include_top=False,
         input_shape=(224, 224, 3),
         name='resnet50'
     )
-    base_model.trainable = True # Set to True as we are loading fine-tuned weights
+    base_model.trainable = True
 
-    # Use the same Sequential structure
-    model = Sequential([
-        Input(shape=(224, 224, 3), name='input_layer'),
-        tf.keras.layers.Lambda(tf.keras.applications.resnet.preprocess_input),
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Input(shape=(224, 224, 3), name='input_layer'),
+        tf.keras.layers.Lambda(preprocess_input),
         base_model,
-        GlobalAveragePooling2D(),
-        Dropout(0.5),
-        Dense(4, activation='softmax')
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(4, activation='softmax')
     ], name="BrainTumorClassifier_ResNet")
 
-    # --- Step 2: Load only the weights into the architecture ---
-    model_path = "best_model.keras"
     st.write(f"Loading weights from {model_path}...")
     model.load_weights(model_path)
     
@@ -63,7 +58,8 @@ uploaded_file = st.file_uploader("Choose an MRI image...", type=["jpg", "jpeg", 
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded MRI Scan', use_column_width=True)
+    # --- MODIFIED LINE ---
+    st.image(image, caption='Uploaded MRI Scan', use_container_width=True)
     st.write("")
 
     if st.button("Predict Tumor Type"):
